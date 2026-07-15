@@ -1,81 +1,136 @@
 import { useState, useEffect } from 'react'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
-// --- 1時間ごとの天気をグリッド表示するコンポーネント ---
+// --- 天気ページ (グラフ表示・24時間分・天気アイコン常時表示) ---
 const WeatherPage = ({ weather }) => {
   if (!Array.isArray(weather) || weather.length === 0) {
     return <div style={{ fontSize: '2rem', color: '#ADD8E6', textShadow: '3px 3px 6px rgba(0,0,0,0.8)' }}>Loading...</div>;
   }
 
-  return (
-    <div style={{ 
-      display: 'grid', 
-      gridTemplateColumns: 'repeat(8, 1fr)', // 1行に8個並べる (8個 × 3段 = 24時間分)
-      gap: '20px 30px', // 縦の隙間20px、横の隙間30px
-      justifyContent: 'center',
-      alignItems: 'center'
-    }}>
-      {weather.map((w, index) => (
-        <div key={index} style={{ textAlign: 'center', color: '#ADD8E6', textShadow: '3px 3px 6px rgba(0,0,0,0.8)' }}>
-          <div style={{ fontSize: '1.2rem', marginBottom: '5px' }}>{w.time}</div>
-          <div style={{ fontSize: '3.5rem', marginBottom: '5px' }}>{w.emoji}</div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{w.temp}℃</div>
+  // 💡 ツールチップ（マウスホバー時の大きな表示）
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div style={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '1px solid #444', padding: '15px', borderRadius: '8px', color: '#fff', textAlign: 'center' }}>
+          <div style={{ fontSize: '1.2rem', marginBottom: '5px', color: '#ccc' }}>{label}</div>
+          <div style={{ fontSize: '3rem', marginBottom: '5px' }}>{data.emoji}</div>
+          <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#ADD8E6' }}>{data.temp}℃</div>
         </div>
-      ))}
+      );
+    }
+    return null;
+  };
+
+  // 💡 グラフの各点に「天気アイコン」を常時表示するカスタムドット
+  const CustomDot = (props) => {
+    const { cx, cy, payload } = props;
+    return (
+      <g>
+        {/* 元の青い点 */}
+        <circle cx={cx} cy={cy} r={4} fill="#ADD8E6" />
+        {/* 点の少し上に天気アイコンを配置 */}
+        <text x={cx} y={cy - 15} textAnchor="middle" fontSize="1.5rem" style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>
+          {payload.emoji}
+        </text>
+      </g>
+    );
+  };
+
+  return (
+    <div style={{ width: '80vw', height: '45vh', margin: '0 auto' }}>
+      <div style={{ fontSize: '2.5rem', marginBottom: '20px', fontWeight: 'bold', textAlign: 'center', color: '#ADD8E6', textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>
+        🌤 気温推移 (24時間)
+      </div>
+      
+      {/* グラフ本体 */}
+      <ResponsiveContainer width="100%" height="100%">
+        {/* topの余白を30にしてアイコンが見切れるのを防ぐ */}
+        <LineChart data={weather} margin={{ top: 30, right: 30, left: 0, bottom: 10 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.2)" />
+          
+          <XAxis dataKey="time" stroke="#ccc" tick={{ fill: '#ccc', fontSize: '1.2rem' }} />
+          
+          <YAxis stroke="#ADD8E6" domain={['dataMin - 2', 'dataMax + 2']} tick={{ fill: '#ADD8E6', fontSize: '1.2rem' }} tickFormatter={(val) => `${Math.round(val)}℃`} />
+          
+          <Tooltip content={<CustomTooltip />} />
+          
+          {/* dotに先ほど作ったCustomDotを指定する */}
+          <Line 
+            type="monotone" 
+            dataKey="temp" 
+            name="気温" 
+            stroke="#ADD8E6" 
+            strokeWidth={4} 
+            dot={<CustomDot />} 
+            activeDot={{ r: 8 }} 
+          />
+        </LineChart>
+      </ResponsiveContainer>
     </div>
   );
 };
 
-// --- 株価ページ (日付を軸にして左右を揃える・7日分) ---
+// --- 株価ページ (グラフ表示・7日分) ---
 const StockPage = ({ stock }) => {
-  // まだデータが届いていない場合
   if (!stock || !stock.Nikkei || !stock.SP500) {
     return <div style={{ fontSize: '2rem', color: '#90EE90' }}>Loading Stock...</div>;
   }
 
-  // ① 両方のデータからすべての日付を取り出し、重複を消して古い順に並べる
+  // ① 両方のデータからすべての日付を取り出し、7日分に絞る
   const allDates = [...new Set([
     ...stock.Nikkei.map(item => item.date),
     ...stock.SP500.map(item => item.date)
   ])].sort();
-
-  // ② 最新の7日分だけをターゲットとして切り取る
   const targetDates = allDates.slice(-7);
 
+  // ② Rechartsで読み込める形式にデータを合体させる
+  const chartData = targetDates.map(date => {
+    const nk = stock.Nikkei.find(item => item.date === date);
+    const sp = stock.SP500.find(item => item.date === date);
+    return {
+      date: date,
+      Nikkei: nk ? nk.price : null,
+      SP500: sp ? sp.price : null,
+    };
+  });
+
   return (
-    <div style={{ display: 'flex', gap: '80px', justifyContent: 'center', color: '#90EE90', textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>
+    <div style={{ width: '80vw', height: '45vh', margin: '0 auto' }}>
+      <div style={{ fontSize: '2.5rem', marginBottom: '20px', fontWeight: 'bold', textAlign: 'center', color: '#90EE90', textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>
+        📈 株価推移 (直近7日間)
+      </div>
       
-      {/* 左側：日経平均 */}
-      <div>
-        <div style={{ fontSize: '3rem', marginBottom: '20px', fontWeight: 'bold', textAlign: 'center' }}>📈 日経平均</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {targetDates.map((date, i) => {
-            const data = stock.Nikkei.find(item => item.date === date);
-            return (
-              <div key={`nk-${i}`} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '2rem', width: '300px', borderBottom: '1px solid rgba(144,238,144,0.3)', paddingBottom: '5px' }}>
-                <span>{date}</span>
-                <span>{data ? `${data.price.toLocaleString()} 円` : '--'}</span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 右側：S&P 500 */}
-      <div>
-        <div style={{ fontSize: '3rem', marginBottom: '20px', fontWeight: 'bold', textAlign: 'center' }}>📈 S&P 500</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {targetDates.map((date, i) => {
-            const data = stock.SP500.find(item => item.date === date);
-            return (
-              <div key={`sp-${i}`} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '2rem', width: '300px', borderBottom: '1px solid rgba(144,238,144,0.3)', paddingBottom: '5px' }}>
-                <span>{date}</span>
-                <span>{data ? `${data.price.toLocaleString()} $` : '--'}</span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
+      {/* グラフ本体 */}
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={chartData} margin={{ top: 10, right: 30, left: 30, bottom: 10 }}>
+          {/* 背景のグリッド線 */}
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.2)" />
+          
+          {/* X軸（日付） */}
+          <XAxis dataKey="date" stroke="#ccc" tick={{ fill: '#ccc', fontSize: '1.2rem' }} />
+          
+          {/* 左側のY軸（日経平均用） */}
+          <YAxis yAxisId="left" stroke="#8884d8" domain={['auto', 'auto']} tick={{ fill: '#8884d8', fontSize: '1.2rem' }} tickFormatter={(val) => `¥${val.toLocaleString()}`} />
+          
+          {/* 右側のY軸（S&P 500用） */}
+          <YAxis yAxisId="right" orientation="right" stroke="#82ca9d" domain={['auto', 'auto']} tick={{ fill: '#82ca9d', fontSize: '1.2rem' }} tickFormatter={(val) => `$${val.toLocaleString()}`} />
+          
+          {/* マウスホバー時のツールチップ */}
+          <Tooltip 
+            contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '1px solid #444', borderRadius: '8px' }}
+            itemStyle={{ fontSize: '1.2rem' }}
+            labelStyle={{ color: '#fff', fontSize: '1.2rem', marginBottom: '5px' }}
+          />
+          <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '1.2rem' }} />
+          
+          {/* 日経平均の線 */}
+          <Line yAxisId="left" type="monotone" dataKey="Nikkei" name="日経平均" stroke="#8884d8" strokeWidth={4} connectNulls dot={{ r: 6 }} activeDot={{ r: 8 }} />
+          
+          {/* S&P 500の線 */}
+          <Line yAxisId="right" type="monotone" dataKey="SP500" name="S&P 500" stroke="#82ca9d" strokeWidth={4} connectNulls dot={{ r: 6 }} activeDot={{ r: 8 }} />
+        </LineChart>
+      </ResponsiveContainer>
     </div>
   );
 };
