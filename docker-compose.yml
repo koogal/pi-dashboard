@@ -8,7 +8,8 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - "${TEMP_PATH:-./dummy_temp.txt}:/app/sensor_data:ro"
+      - ./backend:/app
+      - "${TEMP_PATH:-./dummy_temp.txt}:/app/temp_sensor:ro"
 
   frontend:
     build: ./frontend
