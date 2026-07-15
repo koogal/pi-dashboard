@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  backend:
+    image: pi-dashboard-backend
+    build: ./backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - "${TEMP_PATH:-./dummy_temp.txt}:/app/sensor_data:ro"
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
