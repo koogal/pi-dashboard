@@ -25,12 +25,21 @@ const WeatherPage = ({ weather }) => {
   );
 };
 
-// --- 株価ページ (7日分推移) ---
+// --- 株価ページ (日付を軸にして左右を揃える・7日分) ---
 const StockPage = ({ stock }) => {
   // まだデータが届いていない場合
   if (!stock || !stock.Nikkei || !stock.SP500) {
     return <div style={{ fontSize: '2rem', color: '#90EE90' }}>Loading Stock...</div>;
   }
+
+  // ① 両方のデータからすべての日付を取り出し、重複を消して古い順に並べる
+  const allDates = [...new Set([
+    ...stock.Nikkei.map(item => item.date),
+    ...stock.SP500.map(item => item.date)
+  ])].sort();
+
+  // ② 最新の7日分だけをターゲットとして切り取る
+  const targetDates = allDates.slice(-7);
 
   return (
     <div style={{ display: 'flex', gap: '80px', justifyContent: 'center', color: '#90EE90', textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>
@@ -39,12 +48,15 @@ const StockPage = ({ stock }) => {
       <div>
         <div style={{ fontSize: '3rem', marginBottom: '20px', fontWeight: 'bold', textAlign: 'center' }}>📈 日経平均</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {stock.Nikkei.map((item, i) => (
-            <div key={`nk-${i}`} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '2rem', width: '300px', borderBottom: '1px solid rgba(144,238,144,0.3)', paddingBottom: '5px' }}>
-              <span>{item.date}</span>
-              <span>{item.price.toLocaleString()} 円</span>
-            </div>
-          ))}
+          {targetDates.map((date, i) => {
+            const data = stock.Nikkei.find(item => item.date === date);
+            return (
+              <div key={`nk-${i}`} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '2rem', width: '300px', borderBottom: '1px solid rgba(144,238,144,0.3)', paddingBottom: '5px' }}>
+                <span>{date}</span>
+                <span>{data ? `${data.price.toLocaleString()} 円` : '--'}</span>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -52,12 +64,15 @@ const StockPage = ({ stock }) => {
       <div>
         <div style={{ fontSize: '3rem', marginBottom: '20px', fontWeight: 'bold', textAlign: 'center' }}>📈 S&P 500</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {stock.SP500.map((item, i) => (
-            <div key={`sp-${i}`} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '2rem', width: '300px', borderBottom: '1px solid rgba(144,238,144,0.3)', paddingBottom: '5px' }}>
-              <span>{item.date}</span>
-              <span>{item.price.toLocaleString()} $</span>
-            </div>
-          ))}
+          {targetDates.map((date, i) => {
+            const data = stock.SP500.find(item => item.date === date);
+            return (
+              <div key={`sp-${i}`} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '2rem', width: '300px', borderBottom: '1px solid rgba(144,238,144,0.3)', paddingBottom: '5px' }}>
+                <span>{date}</span>
+                <span>{data ? `${data.price.toLocaleString()} $` : '--'}</span>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -99,7 +114,8 @@ const SystemOverlay = ({ system }) => {
 
 function App() {
   const [time, setTime] = useState(new Date())
-  const [data, setData] = useState({ weather: [], stock: 'Loading...', system: null })
+  const [data, setData] = useState({ weather: [], stock: null })
+  const [system, setSystem] = useState(null) // システム専用の箱を用意
   const [currentPage, setCurrentPage] = useState(0)
 
   // 時計更新 (1秒ごと)
@@ -125,6 +141,27 @@ function App() {
       setTimeout(fetchData, 5000);
     }
   }
+
+  // --- システム情報取得 (初回 ＆ 3秒ごと) ---
+  const fetchSystem = async () => {
+    try {
+      const currentHost = window.location.hostname;
+      const res = await fetch(`http://${currentHost}:8000/api/system`);
+      if (res.ok) {
+        const json = await res.json();
+        setSystem(json); // 新しいStateに保存
+      }
+    } catch (error) {
+      console.error("System fetch error:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchSystem();
+    const interval = setInterval(fetchSystem, 3000); // 3000ms = 3秒ごとに更新
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(() => {
     fetchData();
     const interval = setInterval(fetchData, 600000); // 600000ms = 10分
@@ -226,7 +263,7 @@ function App() {
         </div>
         
       </div>
-      <SystemOverlay system={data.system} />
+      <SystemOverlay system={system} />
     </div>
   )
 }

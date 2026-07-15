@@ -32,6 +32,7 @@ def get_weather_emoji(code):
     if code in [95, 96, 99]: return "⚡️"
     return "❓"
 
+# --- 10分更新用のAPI (天気・株価) ---
 @app.get("/api/data")
 def get_data():
     weather_data = []
@@ -40,7 +41,6 @@ def get_data():
         lon = 139.469 # 所沢市の経度
         w_url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&hourly=temperature_2m,weathercode&timezone=Asia%2FTokyo"
         
-        # タイムアウトを少し長めに取り、HTTPエラー時に例外を出す
         res = requests.get(w_url, timeout=10)
         res.raise_for_status() 
         data = res.json()
@@ -56,7 +56,6 @@ def get_data():
         current_dt = datetime.now(JST)
         current_time_str = current_dt.strftime("%Y-%m-%dT%H:00")
 
-        # 現在時刻『以降』の最初のインデックスを探す（深夜帯のバグ対策）
         start_idx = 0
         for i, t in enumerate(times):
             if t >= current_time_str:
@@ -74,19 +73,16 @@ def get_data():
                 "emoji": get_weather_emoji(codes[i])
             })
     except Exception as e:
-        # エラーの内容をDockerログに出力する
         logger.error(f"天気データの取得エラー: {e}")
 
-# --- 株価 (日経平均とS&P500の7日分) ---
+    # --- 株価 (日経平均とS&P500の7日分) ---
     stock_data = {}
     try:
-        # 日経平均 (^N225)
         nk = yf.Ticker("^N225")
         nk_hist = nk.history(period="7d")
         nk_list = [{"date": d.strftime("%m/%d"), "price": int(row['Close'])} for d, row in nk_hist.iterrows()]
         stock_data["Nikkei"] = nk_list
 
-        # S&P 500 (^GSPC)
         sp = yf.Ticker("^GSPC")
         sp_hist = sp.history(period="7d")
         sp_list = [{"date": d.strftime("%m/%d"), "price": int(row['Close'])} for d, row in sp_hist.iterrows()]
@@ -94,19 +90,22 @@ def get_data():
     except Exception as e:
         logger.error(f"株価データの取得エラー: {e}")
 
-    # 万が一天気データが空だった場合、画面がLoadingで止まるのを防ぐ
     if not weather_data:
         weather_data = [{"time": "Error", "temp": "--", "emoji": "⚠️"}]
 
-# --- システム情報 (CPU, RAM, 温度) ---
+    # 天気と株価だけを返す
+    return {"weather": weather_data, "stock": stock_data}
+
+
+# --- 3秒更新用のリアルタイムAPI (システム情報) ---
+@app.get("/api/system")
+def get_system():
     system_info = {"cpu": 0, "mem": 0, "temp": 0.0}
     try:
-        # CPUとメモリ使用率
         system_info["cpu"] = psutil.cpu_percent(interval=0.1)
         system_info["mem"] = psutil.virtual_memory().percent
         
-        # CPU温度の読み取り
-        temp_path = "/app/sensor_data"
+        temp_path = "/app/temp_sensor"
         if os.path.exists(temp_path):
             with open(temp_path, "r") as f:
                 temp_raw = f.read().strip()
@@ -114,4 +113,4 @@ def get_data():
     except Exception as e:
         logger.error(f"システム情報の取得エラー: {e}")
 
-    return {"weather": weather_data, "stock": stock_data, "system": system_info}
+    return system_info
