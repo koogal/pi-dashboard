@@ -1,5 +1,7 @@
-import React, { useState, useEffect, memo, useMemo } from 'react'
+import React, { useState, useEffect, memo, useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+// 作成した別ファイルを読み込む
+import SingleStockPage from './SingleStockPage';
 
 // --- 1. 天気ページ ---
 const WeatherPage = memo(({ weather }) => {
@@ -51,7 +53,7 @@ const WeatherPage = memo(({ weather }) => {
   );
 });
 
-// --- 2. 株価ページ (日経平均・S&P500) ---
+// --- 2. 比較株価ページ (日経平均・S&P500など2軸用) ---
 const StockPage = memo(({ stock }) => {
   if (!stock || !stock.Nikkei || !stock.SP500) {
     return <div style={{ fontSize: '2rem', color: '#90EE90' }}>Loading Stock...</div>;
@@ -76,7 +78,7 @@ const StockPage = memo(({ stock }) => {
   return (
     <div style={{ width: '80vw', height: '45vh', margin: '0 auto' }}>
       <div style={{ fontSize: '2.5rem', marginBottom: '20px', fontWeight: 'bold', textAlign: 'center', color: '#90EE90', textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>
-        📈 株価推移 (直近7日間)
+        📈 主要指数推移 (直近7日間)
       </div>
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={chartData} margin={{ top: 10, right: 30, left: 30, bottom: 10 }}>
@@ -88,35 +90,6 @@ const StockPage = memo(({ stock }) => {
           <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '1.2rem' }} />
           <Line yAxisId="left" type="monotone" dataKey="Nikkei" name="日経平均" stroke="#8884d8" strokeWidth={4} connectNulls dot={{ r: 6 }} activeDot={{ r: 8 }} />
           <Line yAxisId="right" type="monotone" dataKey="SP500" name="S&P 500" stroke="#82ca9d" strokeWidth={4} connectNulls dot={{ r: 6 }} activeDot={{ r: 8 }} />
-        </LineChart>
-      </ResponsiveContainer>
-    </div>
-  );
-});
-
-// --- 3. 株価ページ (マツキヨ) ---
-const MatsukiyoPage = memo(({ stock }) => {
-  if (!stock || !stock.Matsukiyo) {
-    return <div style={{ fontSize: '2rem', color: '#ffb6c1', textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>マツキヨ株価データ未取得</div>;
-  }
-
-  const chartData = stock.Matsukiyo.map(item => ({
-    date: item.date,
-    Price: item.price
-  }));
-
-  return (
-    <div style={{ width: '80vw', height: '45vh', margin: '0 auto' }}>
-      <div style={{ fontSize: '2.5rem', marginBottom: '20px', fontWeight: 'bold', textAlign: 'center', color: '#ffb6c1', textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>
-        💊 マツキヨ (3088) 株価推移
-      </div>
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={chartData} margin={{ top: 10, right: 30, left: 30, bottom: 10 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.2)" />
-          <XAxis dataKey="date" stroke="#ccc" tick={{ fill: '#ccc', fontSize: '1.2rem' }} />
-          <YAxis stroke="#ffb6c1" domain={['auto', 'auto']} tick={{ fill: '#ffb6c1', fontSize: '1.2rem' }} tickFormatter={(val) => `¥${val.toLocaleString()}`} />
-          <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '1px solid #444', borderRadius: '8px' }} itemStyle={{ fontSize: '1.2rem' }} labelStyle={{ color: '#fff', fontSize: '1.2rem', marginBottom: '5px' }} />
-          <Line type="monotone" dataKey="Price" name="株価" stroke="#ffb6c1" strokeWidth={4} dot={{ r: 6 }} activeDot={{ r: 8 }} />
         </LineChart>
       </ResponsiveContainer>
     </div>
@@ -201,9 +174,8 @@ function App() {
 
   useEffect(() => {
     const pageTimer = setInterval(() => {
-      // 3ページあるので % 3 でローテーションします
-      setCurrentPage((prevPage) => (prevPage + 1) % 3)
-    }, 30000)
+      setCurrentPage((prevPage) => prevPage + 1)
+    }, 10000)
     return () => clearInterval(pageTimer)
   }, [])
 
@@ -219,13 +191,29 @@ function App() {
     }
   };
 
-  // ページリストにマツキヨを追加し、再レンダリングを最適化
-  const pages = useMemo(() => [
-    <WeatherPage key="weather" weather={data.weather} />,
-    <StockPage key="stock" stock={data.stock} />,
-    <MatsukiyoPage key="matsukiyo" stock={data.stock} />,
-  ], [data.weather, data.stock]);
+// --- 表示するページのリストを動的に生成 ---
+  const pages = useMemo(() => {
+    const pageList = [
+      <WeatherPage key="weather" weather={data.weather} />,
+      <StockPage key="stock" stock={data.stock} />,
+    ];
 
+    // バックエンドから送られてきた個別銘柄リストを自動でループしてページを追加
+    if (data.stock && data.stock.individuals) {
+      data.stock.individuals.forEach((item) => {
+        pageList.push(
+          <SingleStockPage 
+            key={item.config.id} 
+            stockData={item.data} 
+            title={item.config.title} 
+            color={item.config.color} 
+            emoji={item.config.emoji} 
+          />
+        );
+      });
+    }
+    return pageList;
+  }, [data.weather, data.stock]);
   return (
     <div 
       onDoubleClick={handleDoubleClick}
@@ -239,7 +227,7 @@ function App() {
       <div style={{ position: 'relative', zIndex: 3, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: '#fff' }}>
         <Clock />
         <div style={{ minHeight: '180px', display: 'flex', alignItems: 'center', width: '100%' }}>
-          {pages[currentPage]}
+          {pages[currentPage % pages.length]}
         </div>
       </div>
       <SystemOverlay system={system} />
@@ -247,4 +235,4 @@ function App() {
   )
 } 
 
-export default App
+export default App;
