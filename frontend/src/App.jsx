@@ -1,22 +1,16 @@
 import React, { useState, useEffect, memo, useMemo } from 'react';
+//import ReactPlayer from 'react-player';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-// 別コンポーネントとして分離した個別株価グラフを読み込む。
-// これによりメイン画面では一覧表示を簡素化し、個別銘柄は専用コンポーネントへ委譲できる。
 import SingleStockPage from './SingleStockPage';
 
 // -----------------------------------------------------------------------------
 // 1. 天気ページ
 // -----------------------------------------------------------------------------
-// バックエンドから受け取った 24 時間分の気温データを Recharts で線グラフ化する。
-// weather 配列の各要素には time, temp, emoji が入っており、画面上で時系列表示を行う。
 const WeatherPage = memo(({ weather }) => {
-  // 気象データが未取得または空配列の場合は読み込み中表示を返す。
   if (!Array.isArray(weather) || weather.length === 0) {
     return <div style={{ fontSize: '2rem', color: '#ADD8E6', textShadow: '3px 3px 6px rgba(0,0,0,0.8)' }}>Loading...</div>;
   }
 
-  // 画面のツールチップ表示をカスタマイズする。
-  // payload から対象データを取り出し、気温と天気アイコンを強調表示する。
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
@@ -31,8 +25,6 @@ const WeatherPage = memo(({ weather }) => {
     return null;
   };
 
-  // グラフ上に描画するドットを独自に定義する。
-  // 画像のように emoji を併記して見やすさを確保するため、標準 dot ではなく独自コンポーネントに変更する。
   const CustomDot = (props) => {
     const { cx, cy, payload } = props;
     return (
@@ -66,8 +58,6 @@ const WeatherPage = memo(({ weather }) => {
 // -----------------------------------------------------------------------------
 // 3. システムオーバレイ
 // -----------------------------------------------------------------------------
-// Raspberry Pi の CPU / メモリ / 温度を右下に重ねて表示する。
-// 画面が見やすいよう、常に overlay で小さく表示し、メイングラフは邪魔しない構成にする。
 const SystemOverlay = memo(({ system }) => {
   if (!system) return null;
   return (
@@ -82,8 +72,6 @@ const SystemOverlay = memo(({ system }) => {
 // -----------------------------------------------------------------------------
 // 4. 時計コンポーネント
 // -----------------------------------------------------------------------------
-// 1 秒ごとに現在時刻を更新して、画面上部に日付と時刻を表示する。
-// 現在時刻の更新は useEffect の interval で管理し、不要なタイマーを cleanup で停止する。
 const Clock = () => {
   const [time, setTime] = useState(new Date());
   useEffect(() => {
@@ -106,18 +94,11 @@ const Clock = () => {
 // -----------------------------------------------------------------------------
 // 5. メインアプリケーション
 // -----------------------------------------------------------------------------
-// バックエンド API から天気・株価・システム情報を取得し、画面をスクロール表示する中心コンポーネント。
-// 画面は複数ページをループ表示し、定期的なデータ更新と自動ページ切り替えを行う。
 function App() {
-  // weather: 24 時間の天気予報,個別銘柄のデータをまとめて保持する。
-  const [data, setData] = useState({ weather: [], stock: null })
-  // Raspberry Pi の CPU / メモリ / 温度を表示するための状態。
-  const [system, setSystem] = useState(null)
-  // 現在表示中のページ番号を保持し、pages 配列を循環表示する。
-  const [currentPage, setCurrentPage] = useState(0)
+  const [data, setData] = useState({ weather: [], stock: null });
+  const [system, setSystem] = useState(null);
+  const [currentPage, setCurrentPage] = useState(0);
 
-  // /api/data エンドポイントを叩いて、天気と株価データを取得する。
-  // 失敗時は 5 秒後に再試行するため、バックエンド起動直後でも画面が復旧しやすい。
   const fetchData = async () => {
     try {
       const currentHost = window.location.hostname;
@@ -129,10 +110,8 @@ function App() {
       console.error("Data fetch error:", error);
       setTimeout(fetchData, 5000);
     }
-  }
+  };
 
-  // /api/system エンドポイントから Raspberry Pi の状態を取得する。
-  // 3 秒ごとに更新し、CPU・メモリ・温度を常に最新値で表示する。
   const fetchSystem = async () => {
     try {
       const currentHost = window.location.hostname;
@@ -156,38 +135,25 @@ function App() {
     fetchData();
     const interval = setInterval(fetchData, 600000);
     return () => clearInterval(interval);
-  }, [])
+  }, []);
 
-  // 10 秒ごとにページ番号を 1 ずつ増やし、表示ページを自動で切り替える。
   useEffect(() => {
     const pageTimer = setInterval(() => {
-      setCurrentPage((prevPage) => prevPage + 1)
-    }, 10000)
-    return () => clearInterval(pageTimer)
-  }, [])
+      setCurrentPage((prevPage) => prevPage + 1);
+    }, 10000);
+    return () => clearInterval(pageTimer);
+  }, []);
 
-  // 画面をダブルクリックしたときにフルスクリーン表示を切り替える。
-  // 表示モードの切り替えを演出として使うための処理。
   const handleDoubleClick = () => {
     if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(err => {
-        console.error("フルスクリーンエラー:", err);
-      });
+      document.documentElement.requestFullscreen().catch(err => console.error(err));
     } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen();
-      }
+      document.exitFullscreen();
     }
   };
 
-  // 表示ページの配列を動的に生成する。
-  // 基本の WeatherPage と StockPage に加え、バックエンドから返された individuals を展開して個別株価ページを追加する。
   const pages = useMemo(() => {
-    const pageList = [
-      <WeatherPage key="weather" weather={data.weather} />
-    ];
-
-    // 個別銘柄一覧を one-by-one でループし、各銘柄用の SingleStockPage を配置する。
+    const pageList = [<WeatherPage key="weather" weather={data.weather} />];
     if (data.stock && data.stock.individuals) {
       data.stock.individuals.forEach((item) => {
         pageList.push(
@@ -205,19 +171,31 @@ function App() {
   }, [data.weather, data.stock]);
 
   return (
-    <div 
-      onDoubleClick={handleDoubleClick}
-      style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden', fontFamily: 'sans-serif', userSelect: 'none' }}
-    >
-      {/* 背景動画は全画面サイズで再生し、メインコンテンツの後ろにレイヤーとして配置する。 */}
-      <video autoPlay loop muted playsInline style={{ position: 'absolute', top: '50%', left: '50%', width: '100vw', height: '100vh', objectFit: 'cover', transform: 'translate(-50%, -50%)', zIndex: 1 }}>
-        <source src="/bg.mp4" type="video/mp4" />
-      </video>
-      {/* 背景の視認性を上げるため、暗いオーバーレイを前面に重ねる。 */}
-      <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0, 0, 0, 0.4)', zIndex: 2 }}></div>
+    <div onDoubleClick={handleDoubleClick} style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden', fontFamily: 'sans-serif', userSelect: 'none' }}>
+      
+{/* YouTube 背景動画（iframeによる確実な実装） */}
+      <iframe
+        src="https://www.youtube.com/embed/CzgSFUAbE9s?autoplay=1&mute=1&controls=0&playsinline=1"
+        title="YouTube background"
+        frameBorder="0"
+        allow="autoplay; encrypted-media"
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          zIndex: 0,
+          pointerEvents: 'none' // カーソル操作を無効化し、動画を完全に背景化する
+        }}
+      />
 
-      {/* 主要表示領域。時計・グラフ・ページ切り替えをまとめて配置する。 */}
-      <div style={{ position: 'relative', zIndex: 3, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: '#fff' }}>
+
+      {/* 暗いオーバーレイ */}
+    {/*  <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0, 0, 0, 0.4)', zIndex: 1 }}></div> */}
+
+      {/* 主要コンテンツ */}
+      <div style={{ position: 'relative', zIndex: 2, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: '#fff' }}>
         <Clock />
         <div style={{ minHeight: '180px', display: 'flex', alignItems: 'center', width: '100%' }}>
           {pages[currentPage % pages.length]}
@@ -225,7 +203,7 @@ function App() {
       </div>
       <SystemOverlay system={system} />
     </div>
-  )
-} 
+  );
+}
 
 export default App;
