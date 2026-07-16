@@ -109,7 +109,7 @@ const Clock = () => {
 // バックエンド API から天気・株価・システム情報を取得し、画面をスクロール表示する中心コンポーネント。
 // 画面は複数ページをループ表示し、定期的なデータ更新と自動ページ切り替えを行う。
 function App() {
-  // weather: 24 時間の天気予報, stock: 日経 / S&P500 / 個別銘柄のデータをまとめて保持する。
+  // weather: 24 時間の天気予報,個別銘柄のデータをまとめて保持する。
   const [data, setData] = useState({ weather: [], stock: null })
   // Raspberry Pi の CPU / メモリ / 温度を表示するための状態。
   const [system, setSystem] = useState(null)
