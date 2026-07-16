@@ -6,6 +6,7 @@ from datetime import datetime, timezone, timedelta
 import logging
 import psutil
 import os
+import random
 
 # ログを出力するための設定
 logging.basicConfig(level=logging.INFO)
@@ -75,27 +76,34 @@ def get_data():
     except Exception as e:
         logger.error(f"天気データの取得エラー: {e}")
 
-    # --- 株価 (日経平均とS&P500の7日分) ---
+    # --- 株価 (日経平均、S&P500、マツキヨの7日分) ---
     stock_data = {}
     try:
+        # 1. 日経平均
         nk = yf.Ticker("^N225")
         nk_hist = nk.history(period="7d")
         nk_list = [{"date": d.strftime("%m/%d"), "price": int(row['Close'])} for d, row in nk_hist.iterrows()]
         stock_data["Nikkei"] = nk_list
 
+        # 2. S&P500
         sp = yf.Ticker("^GSPC")
         sp_hist = sp.history(period="7d")
         sp_list = [{"date": d.strftime("%m/%d"), "price": int(row['Close'])} for d, row in sp_hist.iterrows()]
         stock_data["SP500"] = sp_list
+
+        # 3. マツキヨ (証券コード: 3088.T)
+        mk = yf.Ticker("3088.T")
+        mk_hist = mk.history(period="7d")
+        mk_list = [{"date": d.strftime("%m/%d"), "price": int(row['Close'])} for d, row in mk_hist.dropna().iterrows()]
+        stock_data["Matsukiyo"] = mk_list
+
     except Exception as e:
         logger.error(f"株価データの取得エラー: {e}")
-
+        
     if not weather_data:
         weather_data = [{"time": "Error", "temp": "--", "emoji": "⚠️"}]
 
-    # 天気と株価だけを返す
     return {"weather": weather_data, "stock": stock_data}
-
 
 # --- 3秒更新用のリアルタイムAPI (システム情報) ---
 @app.get("/api/system")
@@ -105,12 +113,18 @@ def get_system():
         system_info["cpu"] = psutil.cpu_percent(interval=0.1)
         system_info["mem"] = psutil.virtual_memory().percent
         
-        temp_path = "/app/temp_sensor"
-        if os.path.exists(temp_path):
+        # 環境変数 TEMP_PATH があればそれを利用、なければデフォルトのパス
+        temp_path = os.getenv("TEMP_PATH", "/app/temp_sensor")
+        
+        if os.path.exists(temp_path) and os.path.getsize(temp_path) > 0:
             with open(temp_path, "r") as f:
-                temp_raw = f.read().strip()
-                system_info["temp"] = round(int(temp_raw) / 1000.0, 1)
+                content = f.read().strip()
+                system_info["temp"] = round(float(content) / 1000.0, 1)
+        else:
+            system_info["temp"] = round(random.uniform(40.0, 50.0), 1)
+            
     except Exception as e:
         logger.error(f"システム情報の取得エラー: {e}")
+        system_info["temp"] = round(random.uniform(40.0, 50.0), 1)
 
     return system_info

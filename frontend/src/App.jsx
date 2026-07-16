@@ -1,9 +1,7 @@
-import React, { useState, useEffect, memo } from 'react'
+import React, { useState, useEffect, memo, useMemo } from 'react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
-// --- 1. コンポーネントのメモ化 (React.memo) ---
-// データが変わらない限り、毎秒の再レンダリングをブロックしてCPUを節約する
-
+// --- 1. 天気ページ ---
 const WeatherPage = memo(({ weather }) => {
   if (!Array.isArray(weather) || weather.length === 0) {
     return <div style={{ fontSize: '2rem', color: '#ADD8E6', textShadow: '3px 3px 6px rgba(0,0,0,0.8)' }}>Loading...</div>;
@@ -53,6 +51,7 @@ const WeatherPage = memo(({ weather }) => {
   );
 });
 
+// --- 2. 株価ページ (日経平均・S&P500) ---
 const StockPage = memo(({ stock }) => {
   if (!stock || !stock.Nikkei || !stock.SP500) {
     return <div style={{ fontSize: '2rem', color: '#90EE90' }}>Loading Stock...</div>;
@@ -95,10 +94,40 @@ const StockPage = memo(({ stock }) => {
   );
 });
 
+// --- 3. 株価ページ (マツキヨ) ---
+const MatsukiyoPage = memo(({ stock }) => {
+  if (!stock || !stock.Matsukiyo) {
+    return <div style={{ fontSize: '2rem', color: '#ffb6c1', textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>マツキヨ株価データ未取得</div>;
+  }
+
+  const chartData = stock.Matsukiyo.map(item => ({
+    date: item.date,
+    Price: item.price
+  }));
+
+  return (
+    <div style={{ width: '80vw', height: '45vh', margin: '0 auto' }}>
+      <div style={{ fontSize: '2.5rem', marginBottom: '20px', fontWeight: 'bold', textAlign: 'center', color: '#ffb6c1', textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>
+        💊 マツキヨ (3088) 株価推移
+      </div>
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={chartData} margin={{ top: 10, right: 30, left: 30, bottom: 10 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.2)" />
+          <XAxis dataKey="date" stroke="#ccc" tick={{ fill: '#ccc', fontSize: '1.2rem' }} />
+          <YAxis stroke="#ffb6c1" domain={['auto', 'auto']} tick={{ fill: '#ffb6c1', fontSize: '1.2rem' }} tickFormatter={(val) => `¥${val.toLocaleString()}`} />
+          <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '1px solid #444', borderRadius: '8px' }} itemStyle={{ fontSize: '1.2rem' }} labelStyle={{ color: '#fff', fontSize: '1.2rem', marginBottom: '5px' }} />
+          <Line type="monotone" dataKey="Price" name="株価" stroke="#ffb6c1" strokeWidth={4} dot={{ r: 6 }} activeDot={{ r: 8 }} />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+});
+
+// --- システムオーバレイ ---
 const SystemOverlay = memo(({ system }) => {
   if (!system) return null;
   return (
-    <div style={{ position: 'absolute', bottom: '20px', right: '30px', display: 'flex', gap: '20px', color: 'rgba(255, 255, 255, 0.6)', textShadow: '1px 1px 3px rgba(0,0,0,0.8)', fontSize: '1.2rem', zIndex: 10 }}>
+    <div style={{ position: 'absolute', bottom: '20px', right: '30px', display: 'flex', gap: '20px', color: 'rgba(255, 255, 255, 0.6)', textShadow: '1px 1px 3px rgba(0,0,0,0.8)', fontSize: '1.2rem', zIndex: 10, pointerEvents: 'none' }}>
       <div><span style={{ fontSize: '1.5rem', marginRight: '8px' }}>🌡️</span>{system.temp}℃</div>
       <div><span style={{ fontSize: '1.5rem', marginRight: '8px' }}>🧠</span>{system.cpu}%</div>
       <div><span style={{ fontSize: '1.5rem', marginRight: '8px' }}>💾</span>{system.mem}%</div>
@@ -106,8 +135,7 @@ const SystemOverlay = memo(({ system }) => {
   );
 });
 
-// --- 2. 時計コンポーネントを独立させる ---
-// 時計の1秒ごとの更新を、この小さな部品の中だけに閉じ込める
+// --- 時計コンポーネント ---
 const Clock = () => {
   const [time, setTime] = useState(new Date());
   useEffect(() => {
@@ -173,7 +201,8 @@ function App() {
 
   useEffect(() => {
     const pageTimer = setInterval(() => {
-      setCurrentPage((prevPage) => (prevPage + 1) % 2)
+      // 3ページあるので % 3 でローテーションします
+      setCurrentPage((prevPage) => (prevPage + 1) % 3)
     }, 30000)
     return () => clearInterval(pageTimer)
   }, [])
@@ -190,12 +219,13 @@ function App() {
     }
   };
 
-  const pages = [
-    <WeatherPage weather={data.weather} />,
-    <StockPage stock={data.stock} />,
-  ];
+  // ページリストにマツキヨを追加し、再レンダリングを最適化
+  const pages = useMemo(() => [
+    <WeatherPage key="weather" weather={data.weather} />,
+    <StockPage key="stock" stock={data.stock} />,
+    <MatsukiyoPage key="matsukiyo" stock={data.stock} />,
+  ], [data.weather, data.stock]);
 
-// --- (中略：App関数の中身) ---
   return (
     <div 
       onDoubleClick={handleDoubleClick}
@@ -208,7 +238,7 @@ function App() {
 
       <div style={{ position: 'relative', zIndex: 3, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: '#fff' }}>
         <Clock />
-        <div style={{ minHeight: '180px', display: 'flex', alignItems: 'center' }}>
+        <div style={{ minHeight: '180px', display: 'flex', alignItems: 'center', width: '100%' }}>
           {pages[currentPage]}
         </div>
       </div>
