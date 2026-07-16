@@ -83,16 +83,11 @@ def get_data():
     except Exception as e:
         logger.error(f"天気データの取得エラー: {e}")
 
-    # 株価データは 2 種類の大きな指数と、設定ファイルから読み込んだ個別銘柄に分ける。
+    # 株価データは設定ファイルから読み込んだ個別銘柄に分ける。
     stock_data = {}
     try:
-        # 1. 日経平均 & S&P500 は固定で取得する。
-        for key, sym in {"Nikkei": "^N225", "SP500": "^GSPC"}.items():
-            hist = yf.Ticker(sym).history(period="7d")
-            stock_data[key] = [{"date": d.strftime("%m/%d"), "price": int(row['Close'])} for d, row in hist.iterrows()]
-
-        # 2. 個別銘柄は stocks.json に設定された銘柄コードを動的に読み込む。
-        #    これにより画面の銘柄を増減してもコード変更を最小化できる。
+        # 個別銘柄は stocks.json に設定された銘柄コードを動的に読み込む。
+        # これにより画面の銘柄を増減してもコード変更を最小化できる。
         individual_stocks = []
         config_path = "/app/stocks.json"
         if os.path.exists(config_path):
@@ -101,7 +96,7 @@ def get_data():
 
             for stock in stocks_config:
                 ticker = yf.Ticker(stock["symbol"])
-                hist = ticker.history(period="7d")
+                hist = ticker.history(period="1mo")
                 data_list = [{"date": d.strftime("%m/%d"), "price": int(row['Close'])} for d, row in hist.dropna().iterrows()]
 
                 # 設定（色・タイトル・絵文字）と実データをセットにしてフロントに渡す。
@@ -139,8 +134,8 @@ def get_system():
             with open(temp_path, "r") as f:
                 system_info["temp"] = round(float(f.read().strip()) / 1000.0, 1)
         else:
-            system_info["temp"] = round(random.uniform(40.0, 50.0), 1)
+            system_info["temp"] = round(random.uniform(100.0, 120.0), 1)
     except Exception as e:
         # 万が一の異常時も画面表示が止まらないよう、ランダム値を返す保険をかける。
-        system_info["temp"] = round(random.uniform(40.0, 50.0), 1)
+        system_info["temp"] = round(random.uniform(100.0, 120.0), 1)
     return system_info

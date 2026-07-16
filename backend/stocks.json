@@ -1,16 +1,11 @@
 [
-  {
-    "id": "Matsukiyo",
-    "symbol": "3088.T",
-    "title": "マツキヨ (3088)",
-    "color": "#ffb6c1",
-    "emoji": "💊"
-  },
-  {
-    "id": "Rakuten",
-    "symbol": "4755.T",
-    "title": "楽天 (4755)",
-    "color": "#bf0000",
-    "emoji": "🛍️"
-  }
+  { "id": "Nikkei", "symbol": "^N225", "title": "日経平均", "color": "#8884d8", "emoji": "📈" },
+  { "id": "SP500", "symbol": "^GSPC", "title": "S&P 500", "color": "#82ca9d", "emoji": "📊" },
+  { "id": "Matsukiyo", "symbol": "3088.T", "title": "マツキヨ (3088)", "color": "#ffb6c1", "emoji": "💊" },
+  { "id": "Rakuten", "symbol": "4755.T", "title": "楽天 (4755)", "color": "#bf0000", "emoji": "🛍️" },
+  { "id": "NTT", "symbol": "9432.T", "title": "NTT (9432)", "color": "#005696", "emoji": "☎️" },
+  { "id": "SoftBank", "symbol": "9434.T", "title": "ソフトバンク (9434)", "color": "#f3a51f", "emoji": "📱" },
+  { "id": "BicCamera", "symbol": "3048.T", "title": "ビックカメラ (3048)", "color": "#d6000f", "emoji": "📷" },
+  { "id": "KDDI", "symbol": "9433.T", "title": "KDDI (9433)", "color": "#e60012", "emoji": "📶" },
+  { "id": "Serverworks", "symbol": "4434.T", "title": "Serverworks (4434)", "color": "#00a4e4", "emoji": "☁️" }
 ]

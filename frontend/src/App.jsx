@@ -46,8 +46,8 @@ const WeatherPage = memo(({ weather }) => {
   };
 
   return (
-    <div style={{ width: '80vw', height: '45vh', margin: '0 auto' }}>
-      <div style={{ fontSize: '2.5rem', marginBottom: '20px', fontWeight: 'bold', textAlign: 'center', color: '#ADD8E6', textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>
+    <div style={{ width: '90vw', height: '60vh', margin: '0 auto' }}>
+      <div style={{ fontSize: '2.5rem', marginBottom: '0px', fontWeight: 'bold', textAlign: 'center', color: '#ADD8E6', textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>
         🌤 気温推移 (24時間)
       </div>
       <ResponsiveContainer width="100%" height="100%">
@@ -57,56 +57,6 @@ const WeatherPage = memo(({ weather }) => {
           <YAxis stroke="#ADD8E6" domain={['dataMin - 2', 'dataMax + 2']} tick={{ fill: '#ADD8E6', fontSize: '1.2rem' }} tickFormatter={(val) => `${Math.round(val)}℃`} />
           <Tooltip content={<CustomTooltip />} />
           <Line type="monotone" dataKey="temp" name="気温" stroke="#ADD8E6" strokeWidth={4} dot={<CustomDot />} activeDot={{ r: 8 }} />
-        </LineChart>
-      </ResponsiveContainer>
-    </div>
-  );
-});
-
-// -----------------------------------------------------------------------------
-// 2. 比較株価ページ
-// -----------------------------------------------------------------------------
-// 日経平均と S&P500 を 2 軸グラフで比較表示する。
-// バックエンドから返る 2 つの時系列データを date で統合し、直近 7 日分だけを抽出して描画する。
-const StockPage = memo(({ stock }) => {
-  // 必要な2つの指数データが未取得ならローディング表示を返す。
-  if (!stock || !stock.Nikkei || !stock.SP500) {
-    return <div style={{ fontSize: '2rem', color: '#90EE90' }}>Loading Stock...</div>;
-  }
-
-  // 2 つの配列に共通する date を集めてユニーク化し、昇順で並べ替える。
-  // そのあと直近 7 日だけを抽出してグラフ用の 1 つの配列に整形する。
-  const allDates = [...new Set([
-    ...stock.Nikkei.map(item => item.date),
-    ...stock.SP500.map(item => item.date)
-  ])].sort();
-  const targetDates = allDates.slice(-7);
-
-  const chartData = targetDates.map(date => {
-    const nk = stock.Nikkei.find(item => item.date === date);
-    const sp = stock.SP500.find(item => item.date === date);
-    return {
-      date: date,
-      Nikkei: nk ? nk.price : null,
-      SP500: sp ? sp.price : null,
-    };
-  });
-
-  return (
-    <div style={{ width: '80vw', height: '45vh', margin: '0 auto' }}>
-      <div style={{ fontSize: '2.5rem', marginBottom: '20px', fontWeight: 'bold', textAlign: 'center', color: '#90EE90', textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>
-        📈 主要指数推移 (直近7日間)
-      </div>
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={chartData} margin={{ top: 10, right: 30, left: 30, bottom: 10 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.2)" />
-          <XAxis dataKey="date" stroke="#ccc" tick={{ fill: '#ccc', fontSize: '1.2rem' }} />
-          <YAxis yAxisId="left" stroke="#8884d8" domain={['auto', 'auto']} tick={{ fill: '#8884d8', fontSize: '1.2rem' }} tickFormatter={(val) => `¥${val.toLocaleString()}`} />
-          <YAxis yAxisId="right" orientation="right" stroke="#82ca9d" domain={['auto', 'auto']} tick={{ fill: '#82ca9d', fontSize: '1.2rem' }} tickFormatter={(val) => `$${val.toLocaleString()}`} />
-          <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '1px solid #444', borderRadius: '8px' }} itemStyle={{ fontSize: '1.2rem' }} labelStyle={{ color: '#fff', fontSize: '1.2rem', marginBottom: '5px' }} />
-          <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '1.2rem' }} />
-          <Line yAxisId="left" type="monotone" dataKey="Nikkei" name="日経平均" stroke="#8884d8" strokeWidth={4} connectNulls dot={{ r: 6 }} activeDot={{ r: 8 }} />
-          <Line yAxisId="right" type="monotone" dataKey="SP500" name="S&P 500" stroke="#82ca9d" strokeWidth={4} connectNulls dot={{ r: 6 }} activeDot={{ r: 8 }} />
         </LineChart>
       </ResponsiveContainer>
     </div>
@@ -234,8 +184,7 @@ function App() {
   // 基本の WeatherPage と StockPage に加え、バックエンドから返された individuals を展開して個別株価ページを追加する。
   const pages = useMemo(() => {
     const pageList = [
-      <WeatherPage key="weather" weather={data.weather} />,
-      <StockPage key="stock" stock={data.stock} />,
+      <WeatherPage key="weather" weather={data.weather} />
     ];
 
     // 個別銘柄一覧を one-by-one でループし、各銘柄用の SingleStockPage を配置する。
