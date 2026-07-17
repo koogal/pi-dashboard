@@ -175,7 +175,7 @@ function App() {
       
 {/* YouTube 背景動画（iframeによる確実な実装） */}
       <iframe
-        src="https://www.youtube.com/embed/CzgSFUAbE9s?autoplay=1&mute=1&controls=0&playsinline=1"
+        src="https://www.youtube.com/embed/DHUnz4dyb54?autoplay=1&mute=1&controls=0&playsinline=1"
         title="YouTube background"
         frameBorder="0"
         allow="autoplay; encrypted-media"
